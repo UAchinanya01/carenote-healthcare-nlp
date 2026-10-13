@@ -1,0 +1,11 @@
+Module 03: AI in Healthcare — Option 1
+Uche Chigozie Achinanya
+Project: CareNote
+
+I selected Option 1 and used ChatGPT to help design, code, test, and document CareNote. This simple healthcare application uses rule-based natural language processing to organize a fictional patient description into an editable visit-preparation note. It recognizes a small set of symptom expressions, possible negation, and duration phrases while preserving the original text for human review.
+
+The application also displays conditional safety guidance for selected warning phrases. It does not diagnose, recommend treatment, or assign triage levels. Its limited vocabulary and approximate language rules can miss or misread details.
+
+The attached package contains commented Python code, 22 passing automated software tests, research with APA references, and instructions for peer review. The tests verify selected software behavior rather than medical accuracy. All demonstration inputs are fictional.
+
+GitHub URL: Paste the actual repository URL here after uploading the files.
