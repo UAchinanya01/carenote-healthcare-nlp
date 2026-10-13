@@ -66,6 +66,8 @@ class CareNoteTests(unittest.TestCase):
         self.assertIn('If there is immediate danger', out)
         self.assertNotIn('If a listed physical symptom', out)
 
+    def test_stiff_neck_combination_notice(self):
+        self.assertIn('stiff neck with fever', analyze('Stiff neck and a fever.'))
     def test_negated_flag_is_uncertain(self):
         self.assertIn('possibly negated; confirm', analyze('No chest pain.'))
 

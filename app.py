@@ -1,7 +1,7 @@
 """CareNote: classroom demonstration of transparent, rule-based NLP.
 
 Run: python app.py. No packages, account, API key, or network required.
-Use fictional examples only. This program does not diagnose or assign triage levels. It displays fixed safety guidance.
+Use fictional examples only. The combined app displays illustrative triage levels, never confirmed diagnoses.
 """
 import re
 
@@ -17,7 +17,25 @@ VOCABULARY = {
     'nausea': r'\b(?:nausea|nauseous|nauseated|feel(?:ing)? sick to my stomach)\b',
     'dizziness': r'\b(?:dizzy|dizziness|light-?headed)\b',
     'fatigue': r'\b(?:fatigue|fatigued|tired|exhausted)\b',
+    'vomiting': r'\b(?:vomit(?:s|ed|ing)?|throwing up|threw up|throw up)\b',
+    'diarrhea': r'\b(?:diarrh(?:ea|oea)|loose stools?|watery stools?)\b',
+    'runny nose': r'\b(?:runny nose|stuffy nose|blocked nose|nasal congestion|congested)\b',
+    'body aches': r'\b(?:body aches?|muscle aches?|aching all over|achy)\b',
+    'stiff neck': r'\b(?:stiff neck|neck (?:is )?stiff|neck stiffness)\b',
 }
+
+# Warning COMBINATIONS: a stiff neck alone is usually minor, but together with
+# fever or headache it can be a sign of meningitis (NHS: Meningitis). These are
+# checked on non-negated mentions and treated like the warning phrases below.
+COMBINATION_FLAGS = [
+    ({'stiff neck', 'fever'}, 'stiff neck with fever'),
+    ({'stiff neck', 'headache'}, 'stiff neck with headache'),
+]
+
+
+def combination_flags(active):
+    """Return warning labels whose symptom combination is fully present."""
+    return [label for needed, label in COMBINATION_FLAGS if needed <= active]
 
 # Fixed safety notice. These phrases are NOT scored or triaged: if any appears,
 # the note opens with the same emergency message. These are keyword-triggered safety messages, not validated triage decisions.
@@ -99,6 +117,10 @@ def analyze(text):
             flags.append(f'- {label}{note}')
             self_harm = self_harm or label == 'thoughts of self-harm'
 
+    # Symptom combinations that need urgent attention (e.g. stiff neck + fever).
+    active = {label for label, status, _ in mentions if status == 'mentioned'}
+    flags += [f'- {label}' for label in combination_flags(active)]
+
     # Durations are listed separately rather than assigned to the wrong symptom.
     durations = [m.group(0) for m in DURATION.finditer(normalized)]
 
@@ -120,7 +142,7 @@ def analyze(text):
               '- What medicines or allergies should the clinician know about?', '',
               'Review all extracted details against the original text.',
               'Limited English vocabulary and negation rules can miss or misread details.',
-              'Educational prototype. No diagnosis, treatment, or triage level. Safety messages use limited keyword rules.']
+              'Visit-note component. See the educational symptom-checker output above. No confirmed diagnosis or treatment recommendation.']
     return '\n'.join(lines)
 
 
@@ -132,10 +154,10 @@ def main():
     from tkinter import ttk, messagebox
 
     root = tk.Tk()
-    root.title('CareNote | Healthcare NLP classroom demo')
+    root.title('CareNote | Symptom checker and triage classroom demo')
     root.geometry('850x750')
     ttk.Label(root, text='CareNote', font=('Arial', 24, 'bold')).pack(pady=10)
-    ttk.Label(root, text='Prepare an editable visit note from a fictional description.').pack()
+    ttk.Label(root, text='Explore symptom patterns, educational triage, and an editable visit note.').pack()
     ttk.Label(root, text='Use synthetic data only. This app does not provide medical advice.').pack(pady=8)
     source = tk.Text(root, height=7, wrap='word', font=('Arial', 12))
     source.pack(fill='x', padx=20)
@@ -143,9 +165,19 @@ def main():
     source.insert('1.0', sample)
     output = tk.Text(root, height=24, wrap='word', font=('Arial', 11))
 
+    context = tk.StringVar(value='Unknown / not confirmed')
+    ttk.Label(root, text='Fictional adult context (do not infer missing information):').pack(pady=4)
+    ttk.Combobox(root, textvariable=context, state='readonly', width=78, values=[
+        'Unknown / not confirmed',
+        'Mild adult symptoms; no warning signs or risk factors; short duration',
+        'Persistent symptoms; adult; no emergency signs',
+        'Severe, worsening, or higher-risk adult']).pack()
+
     def generate():
         try:
-            result = analyze(source.get('1.0', 'end-1c'))
+            from checker import assess, format_assessment
+            text = source.get('1.0', 'end-1c')
+            result = format_assessment(assess(text, context.get())) + '\n' + analyze(text)
             output.delete('1.0', 'end')
             output.insert('1.0', result)
         except ValueError as error:
@@ -154,12 +186,20 @@ def main():
     def clear():
         source.delete('1.0', 'end')
         output.delete('1.0', 'end')
+        context.set('Unknown / not confirmed')
 
     bar = ttk.Frame(root)
     bar.pack(pady=10)
     ttk.Button(bar, text='Create draft note', command=generate).pack(side='left', padx=5)
     ttk.Button(bar, text='Clear', command=clear).pack(side='left', padx=5)
-    output.pack(fill='both', expand=True, padx=20, pady=10)
+    pane = ttk.Frame(root)
+    pane.pack(fill='both', expand=True, padx=20, pady=10)
+    output.pack(in_=pane, side='left', fill='both', expand=True)
+    # `output` was created before `pane`, so raise it above the pane or it stays hidden.
+    output.lift(pane)
+    scroll = ttk.Scrollbar(pane, command=output.yview)
+    scroll.pack(side='right', fill='y')
+    output.configure(yscrollcommand=scroll.set)
     root.mainloop()
 
 
